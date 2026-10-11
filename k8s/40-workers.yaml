@@ -1,0 +1,206 @@
+# The four workers. Each is its own Deployment so it can fail and scale
+# independently. They all run the same image with a different command.
+#
+# Each runs 2 replicas, one per partition of its topic (the router creates
+# topics with 2 partitions). Replicas share their topic through a Kafka
+# consumer group named after the worker.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: post-worker
+  namespace: jetstream-router
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: post-worker
+  template:
+    metadata:
+      labels:
+        app: post-worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              for i in $(seq 1 150); do
+                nc -z -w 2 kafka 9092 && exit 0
+                echo "waiting for kafka ($i/150)"
+                sleep 2
+              done
+              echo "kafka not reachable after 5 minutes"
+              exit 1
+          resources:
+            limits:
+              memory: 16Mi
+      containers:
+        - name: post-worker
+          image: jetstream-router:0.1
+          imagePullPolicy: IfNotPresent
+          command: ["/post-worker"]
+          envFrom:
+            - configMapRef:
+                name: jetstream-router
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: engagement-worker
+  namespace: jetstream-router
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: engagement-worker
+  template:
+    metadata:
+      labels:
+        app: engagement-worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              for i in $(seq 1 150); do
+                nc -z -w 2 kafka 9092 && exit 0
+                echo "waiting for kafka ($i/150)"
+                sleep 2
+              done
+              echo "kafka not reachable after 5 minutes"
+              exit 1
+          resources:
+            limits:
+              memory: 16Mi
+      containers:
+        - name: engagement-worker
+          image: jetstream-router:0.1
+          imagePullPolicy: IfNotPresent
+          command: ["/engagement-worker"]
+          envFrom:
+            - configMapRef:
+                name: jetstream-router
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: follow-worker
+  namespace: jetstream-router
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: follow-worker
+  template:
+    metadata:
+      labels:
+        app: follow-worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              for i in $(seq 1 150); do
+                nc -z -w 2 kafka 9092 && exit 0
+                echo "waiting for kafka ($i/150)"
+                sleep 2
+              done
+              echo "kafka not reachable after 5 minutes"
+              exit 1
+          resources:
+            limits:
+              memory: 16Mi
+      containers:
+        - name: follow-worker
+          image: jetstream-router:0.1
+          imagePullPolicy: IfNotPresent
+          command: ["/follow-worker"]
+          envFrom:
+            - configMapRef:
+                name: jetstream-router
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delete-worker
+  namespace: jetstream-router
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: delete-worker
+  template:
+    metadata:
+      labels:
+        app: delete-worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              for i in $(seq 1 150); do
+                nc -z -w 2 kafka 9092 && exit 0
+                echo "waiting for kafka ($i/150)"
+                sleep 2
+              done
+              echo "kafka not reachable after 5 minutes"
+              exit 1
+          resources:
+            limits:
+              memory: 16Mi
+      containers:
+        - name: delete-worker
+          image: jetstream-router:0.1
+          imagePullPolicy: IfNotPresent
+          command: ["/delete-worker"]
+          envFrom:
+            - configMapRef:
+                name: jetstream-router
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi

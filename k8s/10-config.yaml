@@ -1,0 +1,18 @@
+# Settings shared by the router and workers, loaded as environment variables.
+# Each program reads only the keys it uses.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jetstream-router
+  namespace: jetstream-router
+data:
+  KAFKA_BROKERS: "kafka:9092"
+
+  # post-worker
+  KEYWORDS: "hockey"
+  LANGS: "en,en-US,en-CA"
+
+  # follow-worker: production values. For a quick demo with frequent alerts,
+  # use BURST_THRESHOLD=2 and BURST_WINDOW=10m (see README).
+  BURST_THRESHOLD: "50"
+  BURST_WINDOW: "5m"

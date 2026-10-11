@@ -1,0 +1,7 @@
+# Files Docker doesn't need to build the image. Keeping them out makes
+# builds faster and stops editor changes from invalidating the cache.
+.idea/
+.git/
+*.exe
+Dockerfile
+.dockerignore

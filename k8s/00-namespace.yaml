@@ -1,0 +1,6 @@
+# Everything for this project lives in one namespace, so it can all be
+# removed with: kubectl delete namespace jetstream-router
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jetstream-router

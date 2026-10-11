@@ -1,0 +1,98 @@
+# A single-node Kafka broker for local use.
+
+# Headless Service: gives the pod the stable DNS name "kafka". It publishes
+# the address even before the pod is ready, because Kafka's clients (and
+# Kafka itself, during startup) connect using the advertised name.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: jetstream-router
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: kafka
+  ports:
+    - name: kafka
+      port: 9092
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: jetstream-router
+spec:
+  serviceName: kafka
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      securityContext:
+        fsGroup: 1000 # the apache/kafka image runs as user 1000
+      containers:
+        - name: kafka
+          image: apache/kafka:4.3.1
+          ports:
+            - containerPort: 9092
+          env:
+            - name: KAFKA_NODE_ID
+              value: "1"
+            - name: KAFKA_PROCESS_ROLES
+              value: "broker,controller"
+            - name: KAFKA_LISTENERS
+              value: "PLAINTEXT://:9092,CONTROLLER://:9093"
+            # Everything that talks to Kafka is inside the cluster, so one
+            # advertised address, the Service name, works for all of it.
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://kafka:9092"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+            - name: KAFKA_CONTROLLER_LISTENER_NAMES
+              value: "CONTROLLER"
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: "PLAINTEXT"
+            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+              value: "1@localhost:9093"
+            # Kafka's internal topics default to 3 copies; one broker can only hold 1.
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+              value: "0"
+            - name: KAFKA_LOG_DIRS
+              value: "/var/lib/kafka/data"
+            # Keep the JVM well inside the container's memory limit.
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xms512m -Xmx512m"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka/data
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 768Mi
+            limits:
+              memory: 1Gi
+  # Each Kafka pod gets its own persistent disk, so topics survive restarts.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

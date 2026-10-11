@@ -1,0 +1,61 @@
+# The router: reads Jetstream and publishes each event to its Kafka topic.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router
+  namespace: jetstream-router
+spec:
+  # Exactly one: a second router would open its own Jetstream connection
+  # and publish every event twice.
+  replicas: 1
+  # Stop the old pod before starting the new one on updates. The default
+  # (RollingUpdate) starts the new one first, briefly running two routers.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: router
+  template:
+    metadata:
+      labels:
+        app: router
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532 # the distroless "nonroot" user
+      initContainers:
+        # Wait for Kafka before starting, for up to 5 minutes. After that it
+        # fails, the pod shows Init:Error, and Kubernetes retries with backoff.
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              for i in $(seq 1 150); do
+                nc -z -w 2 kafka 9092 && exit 0
+                echo "waiting for kafka ($i/150)"
+                sleep 2
+              done
+              echo "kafka not reachable after 5 minutes"
+              exit 1
+          resources:
+            limits:
+              memory: 16Mi
+      containers:
+        - name: router
+          image: jetstream-router:0.1
+          # The image is loaded into minikube directly, not pulled from a registry.
+          imagePullPolicy: IfNotPresent
+          command: ["/router"]
+          envFrom:
+            - configMapRef:
+                name: jetstream-router
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              # The async Kafka writer buffers without limit while Kafka is
+              # slow (writes retried); this caps how far that can grow.
+              memory: 256Mi

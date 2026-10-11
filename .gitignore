@@ -1,0 +1,10 @@
+# Editor settings
+.idea/
+
+# Binaries from `go build` (Windows adds .exe; elsewhere they have no extension)
+*.exe
+/router
+/post-worker
+/engagement-worker
+/follow-worker
+/delete-worker
